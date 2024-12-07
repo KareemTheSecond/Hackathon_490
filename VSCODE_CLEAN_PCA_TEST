@@ -1,0 +1,287 @@
+import pandas as pd
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.mixture import GaussianMixture
+from matplotlib.patches import Ellipse
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.preprocessing import StandardScaler
+
+ExcelPath = r"C:\Users\Kareem Hassani\OneDrive\Desktop\College\Year Three\Fall\EECE 490\Hackathon\2024_PersonalityTraits_SurveyData.xls"
+df = pd.read_excel(ExcelPath)
+print(df.head())
+Features = list(df.columns[1:]) #The first column i unamed and looks meanigless. Take everything in front of it....
+#print(Features) 
+WithC0Rows = df.to_numpy().tolist() #including bad column
+Rows = [] 
+for row in WithC0Rows: 
+    Rows.append(row[1:]) #ignore first column
+#print(Rows)
+#print(Rows[0]) # Each data tuple
+#Need to discretize each answer
+GlobalMap = {}
+
+def GetGlobalMap(): 
+    for i in range(0, len(Features)):
+        PossibleValues = df[f"{Features[i]}"].unique()
+        print(PossibleValues)
+        PossibleValues = tuple(sorted(filter(pd.notna, PossibleValues)))  # Filter out NaN and sort for consistency
+
+        if PossibleValues not in GlobalMap:
+            print("Need to manually set scalar")
+            DiscreteMap = {}
+
+            DefaultMapping = input("Enter 'D' to use default index-based mapping ")
+
+            if DefaultMapping == "D":
+                DiscreteMap = {uv: idx for idx, uv in enumerate(PossibleValues)}
+            else:
+                for uv in PossibleValues:
+                    Inpt = input(f"Enter scaled value (e.g., -6 to 6 with -6 being weakest) for '{uv}' in {Features[i]}: ")
+                    Inpt = float(Inpt)  # Convert input to integer
+                    DiscreteMap[uv] = Inpt
+
+            GlobalMap[PossibleValues] = DiscreteMap
+        else:
+            DiscreteMap = GlobalMap[PossibleValues]
+
+
+        df[Features[i]] = df[Features[i]].map(DiscreteMap)
+
+GlobalMap = {
+    ('Private', 'Public'): {'Private': 1.0, 'Public': -1.0},
+    (5,): {5: 0},
+    ('Yes',): {'Yes': 0}, 
+    ('Agree a little', 'Agree moderately', 'Agree strongly', 'Disagree a little', 'Disagree moderately', 'Disagree strongly', 'Neither agree nor disagree'): {'Agree a little': 1.0, 'Agree moderately': 2.0, 'Agree strongly': 3.0, 'Disagree a little': -1.0, 'Disagree moderately': -2.0, 'Disagree strongly': -3.0, 'Neither agree nor disagree': 0.0},
+    ('Agree a little', 'Agree moderately', 'Agree strongly', 'Disagree a little', 'Disagree moderately', 'Neither agree nor disagree'): {'Agree a little': 1.0, 'Agree moderately': 2.0, 'Agree strongly': 3.0, 'Disagree a little': -1.0, 'Disagree moderately': -2.0, 'Neither agree nor disagree': 0.0}, ('No', 'Yes'): {'No': -1.0, 'Yes': 1.0}, ('10 or less cigarettes/day', '11 to 20 cigarettes', '21 to 30 cigarettes', '31 cigarettes/day or more'): {'10 or less cigarettes/day': 5.0, '11 to 20 cigarettes': 15.0, '21 to 30 cigarettes': 25.0, '31 cigarettes/day or more': 40.0}, ('31 to 60 minutes', '6 to 30 minutes', 'After 60 minutes', 'Within 5 minutes'): {'31 to 60 minutes': 2.0, '6 to 30 minutes': 3.0, 'After 60 minutes': 1.0, 'Within 5 minutes': 4.0}, 
+    ('All others', 'The first one in the morning'): {'All others': 0, 'The first one in the morning': 1}, (9, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 189, 2016): {9: 9.0, 10: 10.0, 13: 13.0, 14: 14.0, 15: 15.0, 16: 16.0, 17: 17.0, 18: 18.0, 19: 19.0, 20: 20.0, 21: 21.0, 22: 22.0, 23: 23.0, 24: 24.0, 25: 25.0, 27: 27.0, 189: 20.0, 2016: 20.0},
+    ('The number of cigarettes I smoke per day has decreased', 'The number of cigarettes I smoke per day has increased', 'The number of cigarettes I smoke per day has remained the same'): {'The number of cigarettes I smoke per day has decreased': -1.0, 'The number of cigarettes I smoke per day has increased': 1.0, 'The number of cigarettes I smoke per day has remained the same': 0.0}, ('.', 'Ab', 'Allor', 
+'Allure', 'Camel', 'Camel blue', 'Camel rolling tobacco', 'Camel, Golden Virginia', 'Cedars', 'Cedars - Malboro', 'Ceders', 'Cederz', 'Cohiba', 'Daviddoff', 'Davidof', 'Davidoff', 'Davidoff \nMarlboro red', 'Domingo', 'Dunhill', 'Dunhill switch.', 'Gitanes', 'Golden verginia', 'Heets', 'Heets\nMarlboro Gold\nParliament', 'Heets-marlboro', 'Heets/ previously Davidoff classic', "I don't smoke cigarettes but I smoke IQOS.", 'Iqos', 'Kent', 'Kent silver, Marlboro', 'Malboro', 'Malboro Touch', 'Malborow', 'Mallboro', 'Manitou', 'Marbolo', 'Marlboro', 'Marlboro \nWinston', 'Marlboro Flavor Mix', 'Marlboro Gold', 'Marlboro Gold / Marlboro Medium', 'Marlboro double fusion 4', 'Marlboro fine touch', 'Marlboro gitane', 'Marlboro gold', 'Marlboro light\nMarlboro touch', 'Marlboro light blue', 'Marlboro or any other philip morris cigaret', 'Marlboro red', 'Marlboro red soft', 'Marlboro reds, cedars silver', 'Marlboro touch', 'Marlboro-ceedars', 'Marlboro-gold', 'More', 'No preference in brands or nicotine magnitude', 'Rolling tobacco golden virginia', 'Winston', 'Winston Red Packet', 'camel yellow', 'cederz', 'cohiba', 'davidoff', 'davidoff and marlboro', 'davidoff gold', 'davidoff or marlboro', 'davidoff red', 'davidoff slim', 'gauloises', 'iqos purple wave heets', 'kent', 'lucky strike', 'malboro blue', 'marbolo red paper', 'marlboro', 'marlboro Gold', 'marlboro and heets', 'marlboro gold', 'marlboro lights', 'marlboro or iqos', 'marlboro or kent', 'marlboro touch', 'marlboro, iqos', 'parliament / cohiba / winston blue', 'اوسكار', 'دوفيدوف', 'مارلبورو', 'مالبورو'): {'.': 0, 'Ab': 1, 'Allor': 2, 'Allure': 3, 'Camel': 4, 'Camel blue': 5, 'Camel rolling tobacco': 6, 'Camel, Golden Virginia': 7, 'Cedars': 8, 'Cedars - Malboro': 9, 'Ceders': 10, 'Cederz': 11, 'Cohiba': 12, 'Daviddoff': 13, 'Davidof': 14, 'Davidoff': 15, 'Davidoff \nMarlboro red': 16, 'Domingo': 17, 'Dunhill': 18, 'Dunhill switch.': 19, 'Gitanes': 20, 'Golden verginia': 21, 'Heets': 22, 'Heets\nMarlboro Gold\nParliament': 23, 'Heets-marlboro': 24, 'Heets/ previously Davidoff classic': 25, "I don't smoke cigarettes but I smoke IQOS.": 26, 'Iqos': 27, 'Kent': 28, 'Kent silver, Marlboro': 29, 'Malboro': 30, 'Malboro Touch': 31, 'Malborow': 32, 'Mallboro': 33, 'Manitou': 34, 'Marbolo': 35, 'Marlboro': 36, 'Marlboro \nWinston': 37, 'Marlboro Flavor Mix': 38, 'Marlboro Gold': 39, 'Marlboro Gold / Marlboro Medium': 40, 'Marlboro double fusion 4': 41, 'Marlboro fine touch': 42, 'Marlboro gitane': 43, 'Marlboro gold': 44, 'Marlboro light\nMarlboro touch': 45, 'Marlboro light blue': 46, 'Marlboro or any other philip morris cigaret': 47, 'Marlboro red': 48, 'Marlboro red soft': 49, 
+'Marlboro reds, cedars silver': 50, 'Marlboro touch': 51, 'Marlboro-ceedars': 52, 'Marlboro-gold': 53, 'More': 54, 'No preference in brands or nicotine magnitude': 55, 'Rolling tobacco golden virginia': 56, 'Winston': 57, 'Winston Red Packet': 58, 'camel yellow': 59, 'cederz': 60, 'cohiba': 61, 'davidoff': 62, 'davidoff and marlboro': 63, 'davidoff gold': 64, 'davidoff or marlboro': 65, 'davidoff red': 66, 'davidoff slim': 67, 'gauloises': 68, 'iqos purple wave heets': 69, 'kent': 70, 'lucky strike': 71, 'malboro blue': 72, 'marbolo red paper': 73, 'marlboro': 74, 'marlboro Gold': 75, 'marlboro and heets': 76, 'marlboro gold': 77, 'marlboro lights': 78, 'marlboro or iqos': 79, 'marlboro or kent': 80, 'marlboro touch': 81, 'marlboro, iqos': 82, 'parliament / cohiba / winston blue': 83, 'اوسكار': 84, 'دوفيدوف': 85, 'مارلبورو': 86, 'مالبورو': 87}, ('Ab', 'Allure', 'Any, nothing specific i never buy a pack', 'Calle+ IQOS+ Redfield rolling tabaco', 'Camel', 'Camel blue', 'Camel rolling tobacco', 'Ccedars', 'Cedars', 'Cedars, rolling local tobacco', 'Ceders', 'Ceders Blue', 'Cederz', 'Ceedars-heets', 'Cidar', 'Ciders silver. Kent Silver. Depends on what I can afford.', 'Cudars slim', 'Daviddoff', 'Davidoff', 'Davidoff evolve', 'Domingo', 'Dunhill', 'Gitane', 'Gitanes', 'Golden Virginia', 'Golden verginia', 'Heats', 'Heets', 'Heets (IQOS)', 'Heets by Iqos', 'Heets silver', 'I dont use any, i smoke casually and take one from my friends', 'IQOS', 'IQOS HEETS AMBER', 'Iqos', 'Kent', 'Kent Blue', 'Kent Silver', 'Malboro', 'Malboro craft', 'Malborow', 'Mallboro', 'Marlbolo', 'Marlboro', 
+'Marlboro Gold', 'Marlboro blue', 'Marlboro fine touch', 'Marlboro red', 'Marlboro red soft', 'Marlboro reds and sometimes cedars silver', 'Marlboro touch', 'Marlboro-touch', 'More', 'None', 'Parliament Azra2', 'Rolling tobacco golden virginia', 'Sometimes malboro sometimes ceedars', 'Stanley tobbaco', 'Suderes', 'Winston', 'Winston Red Packet', 'Winston/ davidoff', 'cedar', 'cedars', 'cedars and laf', 'cedars super slim silver', 'ceders', 'cederz', 'ceedars', 'cohiba', 'davidoff', 'davidoff and marlboro', 'davidoff gold', 'davidoff slim', 'gauloises', 'i stayed smoking winston but now i switched to using iqos', 'iqos', 'iqos purple wave heets', 'kent', 'marbolo red paper', 'marlboro', 'marlboro craft', 'marlboro fine touch', 'marlboro gold', 'marlboro gold and iqos', 'marlboro gold or lights', 'marlboro lights', 'marlboro or iqos', 'marlboro silver blue', 'marlboro touch', 'marlbroro blue', 'none', 'stanley', 'اوسكار', 'دوفيدوف', 'سيدر', 'سيدرز'): {'Ab': 0, 'Allure': 1, 'Any, nothing specific i never buy a pack': 2, 'Calle+ IQOS+ Redfield rolling tabaco': 3, 'Camel': 4, 'Camel blue': 5, 'Camel rolling tobacco': 6, 'Ccedars': 7, 'Cedars': 8, 'Cedars, rolling local tobacco': 9, 'Ceders': 10, 'Ceders Blue': 11, 'Cederz': 12, 'Ceedars-heets': 13, 'Cidar': 14, 'Ciders silver. Kent Silver. Depends on what I can afford.': 15, 'Cudars slim': 16, 'Daviddoff': 17, 'Davidoff': 18, 'Davidoff evolve': 19, 'Domingo': 20, 'Dunhill': 21, 'Gitane': 22, 'Gitanes': 23, 'Golden Virginia': 24, 'Golden verginia': 25, 'Heats': 26, 'Heets': 27, 'Heets (IQOS)': 28, 'Heets by Iqos': 29, 'Heets silver': 30, 'I dont use any, i smoke casually and take one from my friends': 31, 'IQOS': 32, 'IQOS HEETS AMBER': 33, 'Iqos': 34, 'Kent': 35, 'Kent Blue': 36, 'Kent Silver': 37, 'Malboro': 38, 'Malboro craft': 39, 'Malborow': 40, 'Mallboro': 41, 'Marlbolo': 42, 'Marlboro': 43, 'Marlboro Gold': 44, 'Marlboro blue': 45, 'Marlboro fine touch': 46, 'Marlboro red': 47, 'Marlboro red soft': 48, 'Marlboro reds and sometimes cedars silver': 49, 'Marlboro touch': 50, 'Marlboro-touch': 51, 'More': 52, 'None': 53, 'Parliament Azra2': 54, 'Rolling tobacco golden virginia': 55, 'Sometimes malboro sometimes ceedars': 56, 'Stanley tobbaco': 57, 'Suderes': 58, 'Winston': 59, 'Winston Red Packet': 60, 'Winston/ davidoff': 61, 'cedar': 62, 'cedars': 63, 'cedars and laf': 64, 'cedars super slim silver': 65, 'ceders': 66, 'cederz': 67, 'ceedars': 68, 'cohiba': 69, 'davidoff': 70, 'davidoff and marlboro': 71, 'davidoff gold': 72, 'davidoff slim': 73, 'gauloises': 74, 'i stayed smoking winston but now i switched to using iqos': 75, 'iqos': 76, 'iqos purple wave heets': 77, 'kent': 78, 'marbolo red paper': 79, 'marlboro': 80, 'marlboro craft': 81, 'marlboro fine touch': 82, 'marlboro gold': 83, 'marlboro gold and iqos': 84, 'marlboro gold or lights': 85, 
+'marlboro lights': 86, 'marlboro or iqos': 87, 'marlboro silver blue': 88, 'marlboro touch': 89, 'marlbroro blue': 90, 'none': 91, 'stanley': 92, 'اوسكار': 93, 'دوفيدوف': 94, 'سيدر': 95, 'سيدرز': 96}, ('No, I am currently using my favorite or preferred cigarette brand(s)', 'Yes, I am currently using a cheaper alternative', 'Yes, I am currently using a more expensive alternative'): {'No, I am currently using my favorite or preferred cigarette brand(s)': 0, 'Yes, I am currently using a cheaper alternative': 1, 'Yes, I am currently using a more expensive alternative': 2}, ('Female', 'Male'): {'Female': -1.0, 'Male': 1.0}, (18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30): {18: 18.0, 19: 19.0, 20: 20.0, 
+21: 21.0, 22: 22.0, 23: 23.0, 24: 24.0, 25: 25.0, 26: 26.0, 27: 27.0, 28: 28.0, 29: 29.0, 30: 30.0}, ('Baalbeck - Hermel', 'Beirut', 'Beqaa', 'Keserwan - Jbeil', 'Mount Lebanon', 'Nabatieh', 'North Lebanon', 'South Lebanon'): {'Baalbeck - Hermel': 0, 'Beirut': 1, 'Beqaa': 2, 'Keserwan - Jbeil': 3, 'Mount Lebanon': 4, 'Nabatieh': 5, 'North Lebanon': 6, 'South Lebanon': 7}, ("Bachelor's degree (BA/BS)", 'Graduate degree (MA/MS)', 'High school degree or equivalent (e.g. GED)', "Incomplete bachelor's degree", 'Incomplete graduate degree', 'Less than high school', 'Post-graduate degree (PhD, MD, or other)'): {"Bachelor's degree (BA/BS)": 0, 'Graduate degree (MA/MS)': 1, 'High school degree or equivalent (e.g. GED)': 2, "Incomplete bachelor's degree": 3, 'Incomplete graduate degree': 4, 'Less than high school': 5, 'Post-graduate degree (PhD, MD, or other)': 6}, ('Business owner', 'Employee; full-time', 'Employee; part-time', 'Homemaker', 'Other, please specify', 'Student only', 'Student with a part-time or full-time job', 'Unemployed (but seeking employment)'): {'Business owner': 0, 'Employee; full-time': 1, 'Employee; part-time': 2, 'Homemaker': 3, 'Other, please specify': 4, 'Student only': 5, 'Student with a part-time or full-time job': 6, 'Unemployed (but seeking employment)': 7},
+
+ ('Student and business owner', 'اتمنى ان اتوقف عن التدخين لكن الامر صعب', 
+     'حاولت التوقف عن التدخين عدة مرات لكن لم استطع', 'طالب مع عمل حر', 
+     'طالبة ربة منزل و تعمل من المنزل', 'كل الشكر ❤️'): {
+        'Student and business owner': 0, 
+        'اتمنى ان اتوقف عن التدخين لكن الامر صعب': 1, 
+        'حاولت التوقف عن التدخين عدة مرات لكن لم استطع': 2, 
+        'طالب مع عمل حر': 3, 
+        'طالبة ربة منزل و تعمل من المنزل': 4, 
+        'كل الشكر ❤️': 5
+    },
+       
+('Divorced/Separated', 'Engaged', 'Married', 'Other, please specify', 'Single'
+): {'Divorced/Separated': 0, 'Engaged': 1, 'Married': 2, 'Other, please specify': 3, 'Single': 4}, ('....', 'I have a boyfriend', 'In a relationship', 'Long-term Relationship', 'Planning to get engaged', 'Single be2is', 'Taken , love relationship', 'in a relationship', 'in relationship', 'relationship', 'غير متزوج'): {'....': 0, 'I have a boyfriend': 1, 
+'In a relationship': 2, 'Long-term Relationship': 3, 'Planning to get engaged': 4, 'Single be2is': 5, 'Taken , love relationship': 6, 'in a relationship': 7, 'in relationship': 8, 'relationship': 9, 'غير متزوج': 10}, (0, 1, 2, 3, 4, 5): {0: 0.0, 1: 1.0, 2: 2.0, 3: 3.0, 4: 4.0, 5: 5.0}, ('Investment', 'Job', 'Other, please specify', 'Own business income', 'Parents'): {'Investment': 0, 'Job': 1, 'Other, please specify': 2, 'Own business income': 3, 'Parents': 4}, ('Crypto', 'Scholarship', 'Scholarshsip', 'Stipend from a graduate degree scholarship', 'savings', 'scholarship', 'الزوج و عمل بمدخول بسيط', 'زراعة', 'زوجي', 'عمل دوام جزئي ومن الآباء', 'مساعدة مالية من الخارج'): {'Crypto': 0, 'Scholarship': 1, 'Scholarshsip': 2, 'Stipend from a graduate degree scholarship': 3, 'savings': 4, 'scholarship': 5, 'الزوج و عمل بمدخول بسيط': 6, 'زراعة': 7, 'زوجي': 8, 'عمل دوام جزئي ومن الآباء': 9, 'مساعدة مالية من الخارج': 10}, ('Fully in Lebanese Lira', 'Fully in US Dollars', 'Mixed', 'Other, please specify'): {'Fully in Lebanese Lira': 0, 'Fully in US Dollars': 1, 'Mixed': 2, 'Other, please specify': 3}, ('Euro', 'My family lives in libya. Receives money in Libyan dinars.', 'No income, living off savings', 'none'): {'Euro': 0, 'My family lives in libya. Receives money in Libyan dinars.': 1, 'No income, living off savings': 2, 'none': 3}, ('Between 1 and 4 million L.L', 'Between 12 and 16 million L.L', 'Between 16 and 20 million L.L', 'Between 4 and 8 million L.L', 'Between 8 and 12 million L.L', "I don't know", 'I prefer not to say', 'Less than 1 million L.L', 'More than 20 million L.L'): 
+{'Between 1 and 4 million L.L': 2.5, 'Between 12 and 16 million L.L': 14, 'Between 16 and 20 million L.L': 18, 'Between 4 and 8 million L.L': 6, 'Between 8 and 12 million L.L': 10, "I don't know": 0, 'I prefer not to say': 0, 'Less than 1 million L.L': 1, 'More than 20 million L.L': 20}, ('Extremely high: covers a wide range of luxury items', 'High: completely covers necessities with a few luxury items', 'Low: barely covers basic needs for a month', 'Medium: covers all basic needs', 'Very low income: does not cover basic needs for a month'): {'Extremely high: covers a wide range of luxury items': 100.0, 'High: completely covers necessities with a few luxury items': 70.0, 
+'Low: barely covers basic needs for a month': 10.0, 'Medium: covers all basic needs': 50.0, 'Very low income: does not cover basic needs for a month': 4.0}, (0, 1, 2, 3, 4, 5, 6, 7, 8): {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8}, ('Extremely', 'Moderately', 'Not at all', 'Slightly', 'Very'): {'Extremely': 100.0, 'Moderately': 50.0, 'Not at all': 0.0, 'Slightly': 25.0, 'Very': 80.0}, ('Every day or at least 5 times every week', 'Never', 'Often or at least 3 days every week', 'Sometimes or a few days every month'): {'Every day or at least 5 times every week': 3.0, 'Never': 0.0, 'Often or at least 3 days every week': 2.0, 'Sometimes or a few days every month': 1.0}, ('Between 1 hour and 2 hours', 'Between 2 and 3 hours', 'Between 3 and 4 hours', "I don't use any social media platforms", 'Less than 1 hour', 'More than 4 hours'): {'Between 1 hour and 2 hours': 1.5, 'Between 2 and 3 hours': 2.5, 'Between 3 and 4 hours': 3.5, "I don't use any social media platforms": 0.0, 'Less than 1 hour': 0.5, 'More than 4 hours': 5.0}, ('Constantly', 'Frequently', 'Never', 'Occasionally', 'Rarely'): {'Constantly': 10.0, 'Frequently': 8.0, 'Never': 0.0, 'Occasionally': 5.0, 'Rarely': 1.0}, ('Employed', 'Unemployed'): {'Employed': -1.0, 'Unemployed': 1.0}}
+df = df.iloc[:, 1:] 
+
+# Assuming `Features` contains the column names from the DataFrame after dropping the first column
+Features = list(df.columns)
+# Apply the GlobalMap to map values for each column
+for feature in Features:
+    PossibleValues = tuple(sorted(filter(pd.notna, df[feature].unique())))  # Filter and sort unique values for consistency
+    if PossibleValues in GlobalMap:
+        # Map the column values using the corresponding mapping in GlobalMap
+        df[feature] = df[feature].map(GlobalMap[PossibleValues])
+    else:
+        print(f"No mapping found for feature '{feature}' with values: {PossibleValues}")
+
+# Display the modified DataFrame
+print("Updated DataFrame:")
+
+#print(df.isnull().sum())
+df = df.drop(columns=["What is your current employment status? [Comment]", 
+                    "What is your current marital status? [Comment]", 
+                    "What is your main source of income? [Comment]", 
+                    "What type of income or financial support does your household receive? [Comment]", 
+                    "What is your favorite or preferred cigarette brand(s) if you were able to access it?", 
+                    "I see myself as someone who is critical, quarrelsome:"
+                    ])
+print(df.head())
+#print(df.isnull().sum())
+pca = PCA(n_components=2)
+# Use f instead of df for PCA
+X_pca = pca.fit_transform(df)
+
+# Apply Gaussian Mixture Model (GMM) for clustering
+GMM = GaussianMixture(n_components=3, random_state=42)
+GMM.fit(X_pca)
+
+ClustersPred = GMM.predict(X_pca)
+MeansMatrix = GMM.means_
+CovarianceMatrix = GMM.covariances_
+
+# Visualization
+Colors = ["b", "g", "r", "c", "m", "y", "k", "navy", "coral", "slategray"]
+plt.figure(figsize=(10, 8))
+ClusterColors = [Colors[label % len(Colors)] for label in ClustersPred]
+
+plt.scatter(X_pca[:, 0], X_pca[:, 1], c=ClusterColors, alpha=0.6)
+plt.xlabel("First Principal Component")
+plt.ylabel("Second Principal Component")
+plt.title("PCA and GMM Clustering: MOST OF THE FEATURES")
+
+ax = plt.gca()
+for i, (mean, covariance) in enumerate(zip(MeansMatrix, CovarianceMatrix)):
+    eigenvalues, eigenvectors = np.linalg.eigh(covariance)
+    order = eigenvalues.argsort()[::-1]
+    eigenvalues = eigenvalues[order]
+    eigenvectors = eigenvectors[:, order]
+    angle = np.arctan2(eigenvectors[1, 0], eigenvectors[0, 0]) * 180 / np.pi
+    width, height = 2 * np.sqrt(eigenvalues)
+    ellipse = Ellipse(mean, width=width, height=height, angle=angle, 
+                      color=Colors[i % len(Colors)], alpha=0.3)
+    ax.add_patch(ellipse)
+
+plt.show()
+
+num_clusters = len(np.unique(ClustersPred))
+print(f"Number of clusters: {num_clusters}")
+
+#______________________________ Now feature selection then we will do PCA/GMM again
+
+
+
+f = df.copy()
+
+# Step 1: Remove Low-Variance Features
+threshold = 1    # Adjust based on data scale
+selector = VarianceThreshold(threshold=threshold)
+f_reduced = pd.DataFrame(selector.fit_transform(f), columns=f.columns[selector.get_support()])
+print("Removed low-variance features. Remaining shape:", f_reduced.shape)
+
+# Step 2: Remove Highly Correlated Features
+corr_matrix = f_reduced.corr().abs()
+upper_triangle = corr_matrix.where(~np.tril(np.ones(corr_matrix.shape)).astype(bool))
+
+high_cor_features = [column for column in upper_triangle.columns if any(upper_triangle[column] > 0.9)]
+f_final = f_reduced.drop(columns=high_cor_features, errors='ignore')
+print("Removed high-correlation features. Remaining shape:", f_final.shape)
+
+# At this point, you can optionally apply domain knowledge to remove additional features.
+# For example:
+# domain_irrelevant_features = ["SomeFeatureNotNeeded"]
+# f_final = f_final.drop(columns=domain_irrelevant_features, errors='ignore')
+
+print("Applied domain knowledge-based removals. Final shape:", f_final.shape)
+
+pca = PCA(n_components=2)
+# Use f instead of df for PCA
+X_pca = pca.fit_transform(f_final)
+
+# Apply Gaussian Mixture Model (GMM) for clustering
+GMM = GaussianMixture(n_components=5, random_state=42)
+GMM.fit(X_pca)
+
+ClustersPred = GMM.predict(X_pca)
+MeansMatrix = GMM.means_
+CovarianceMatrix = GMM.covariances_
+
+# Visualization
+Colors = ["b", "g", "r", "c", "m", "y", "k", "navy", "coral", "slategray"]
+plt.figure(figsize=(10, 8))
+ClusterColors = [Colors[label % len(Colors)] for label in ClustersPred]
+
+plt.scatter(X_pca[:, 0], X_pca[:, 1], c=ClusterColors, alpha=0.6)
+plt.xlabel("First Principal Component")
+plt.ylabel("Second Principal Component")
+plt.title("PCA and GMM Clustering: MOST OF THE FEATURES")
+
+ax = plt.gca()
+for i, (mean, covariance) in enumerate(zip(MeansMatrix, CovarianceMatrix)):
+    eigenvalues, eigenvectors = np.linalg.eigh(covariance)
+    order = eigenvalues.argsort()[::-1]
+    eigenvalues = eigenvalues[order]
+    eigenvectors = eigenvectors[:, order]
+    angle = np.arctan2(eigenvectors[1, 0], eigenvectors[0, 0]) * 180 / np.pi
+    width, height = 2 * np.sqrt(eigenvalues)
+    ellipse = Ellipse(mean, width=width, height=height, angle=angle, 
+                      color=Colors[i % len(Colors)], alpha=0.3)
+    ax.add_patch(ellipse)
+
+plt.show()
+
+num_clusters = len(np.unique(ClustersPred))
+print(f"Number of clusters: {num_clusters}")
+
+######################################
+
+
+selected_features = [
+    # Smoking behavior:
+    "Have you smoked at least one full tobacco cigarette (excluding e-cigarettes) once or more in the past 30 days?",
+    "How many cigarettes do you smoke each day?",
+    "Do you smoke more frequently during the first hours after waking up than during the rest of the day? ",
+    "Do you smoke if you are so ill that you are in bed most of the day?",
+    "How soon after you wake up do you smoke your first cigarette?",
+    # Economic & brand related:
+    "Are you currently able to afford your favorite or preferred cigarette brand(s)?",
+    "Has 2019's revolution or economic crisis caused you to switch away from your favorite or preferred cigarette brand(s) to an  alternative?",
+    # Personality (Narrow it down as needed):
+    "I see myself as someone who is anxious, easily upset:",
+    "I see myself as someone who is calm, emotionally stable:",
+    "I see myself as someone who is open to new experiences:",
+    # Demographics & Socioeconomic:
+    "Gender:",
+    "How old are you?",
+    "Which governerate do you live in or spend most of your time in?",
+    "What is the highest level of education you have attained?",
+    "What is your main source of income?",
+    "If you receive payment in Lebanese Lira, what is your current estimated monthly household income? (If income is in US Dollars, then refer to the current black market exchange).",
+    "How would you describe your current income sufficiency?",
+    # Lifestyle & Stress:
+    "How often do you feel stressed?",
+    "How often do you exercise?"
+]
+
+# Filter the DataFrame to only these selected features
+selected_df = df[selected_features].copy()
+
+# Drop any rows with NaN (if any remain after mapping)
+selected_df = selected_df.dropna()
+
+# Optional: Scale the data
+scaler = StandardScaler()
+X_selected = scaler.fit_transform(selected_df)
+
+# PCA and GMM on selected features
+pca = PCA(n_components=2)
+X_pca_selected = pca.fit_transform(X_selected)
+
+GMM = GaussianMixture(n_components=5, random_state=42)
+GMM.fit(X_pca_selected)
+
+ClustersPred_selected = GMM.predict(X_pca_selected)
+MeansMatrix_selected = GMM.means_
+CovarianceMatrix_selected = GMM.covariances_
+
+plt.figure(figsize=(10, 8))
+ClusterColors = [Colors[label % len(Colors)] for label in ClustersPred_selected]
+
+plt.scatter(X_pca_selected[:, 0], X_pca_selected[:, 1], c=ClusterColors, alpha=0.6)
+plt.xlabel("First Principal Component")
+plt.ylabel("Second Principal Component")
+plt.title("PCA and GMM Clustering on Selected Features (Part 3)")
+
+ax = plt.gca()
+for i, (mean, covariance) in enumerate(zip(MeansMatrix_selected, CovarianceMatrix_selected)):
+    eigenvalues, eigenvectors = np.linalg.eigh(covariance)
+    order = eigenvalues.argsort()[::-1]
+    eigenvalues = eigenvalues[order]
+    eigenvectors = eigenvectors[:, order]
+    angle = np.arctan2(eigenvectors[1, 0], eigenvectors[0, 0]) * 180 / np.pi
+    width, height = 2 * np.sqrt(eigenvalues)
+    ellipse = Ellipse(mean, width=width, height=height, angle=angle,
+                      color=Colors[i % len(Colors)], alpha=0.3)
+    ax.add_patch(ellipse)
+
+plt.show()
+
+num_clusters_selected = len(np.unique(ClustersPred_selected))
+print(f"Number of clusters (Part 3, Selected Features): {num_clusters_selected}")
