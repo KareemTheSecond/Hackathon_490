@@ -49,7 +49,9 @@ def PCA_PlotClusters(df5, NumberOfClusters):
   plt.show()
   return ClustersPred
   
-  def ElbowBestCluster():
+  def ElbowBestCluster(df5):
+    pca = PCA(n_components=2)
+    X_pca = pca.fit_transform(df5)
     wcss = []
     
     for n in range(1, 10):
@@ -65,7 +67,9 @@ def PCA_PlotClusters(df5, NumberOfClusters):
     plt.title('Elbow Method for Optimal Clusters')
     plt.show()
     
-  def BicsBestCluster(): 
+  def BicsBestCluster(df5): 
+    pca = PCA(n_components=2)
+    X_pca = pca.fit_transform(df5)
     n_components_range = range(1, 11)  # Try 1 to 10 clusters
     bics = []
 
@@ -73,8 +77,7 @@ def PCA_PlotClusters(df5, NumberOfClusters):
         gmm = GaussianMixture(n_components=n_components, random_state=42)
         gmm.fit(X_pca)
         bics.append(gmm.bic(X_pca))
-    
-    # Identify the best number of clusters based on the lowest BIC
+  
     best_n = n_components_range[np.argmin(bics)]
     
     plt.figure(figsize=(8,5))
