@@ -40,7 +40,7 @@ def GetGlobalMap():
 
 
 
-def ExtractFromExcelDiscrete(path,ManualDiscrete = False): 
+def ExtractFromExcelDiscrete(ExcelPath,ManualDiscrete = False): 
   df = pd.read_excel(ExcelPath)
   df = df.iloc[:, 1:] 
   Features = list(df.columns)
