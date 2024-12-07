@@ -1,6 +1,27 @@
 
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
+import torch
+import torch
+from torch.utils.data import DataLoader, TensorDataset
+import torch.nn as nn
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.mixture import GaussianMixture
+from matplotlib.patches import Ellipse
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.preprocessing import StandardScaler
+
+from sklearn.cluster import KMeans
+
 class AutoEncoder(nn.Module):
     def __init__(self, input_dim, latent_dim):
         super(AutoEncoder, self).__init__()
@@ -31,8 +52,6 @@ class AutoEncoder(nn.Module):
         return self.decoder(z)
 
 def DimentionalityReductionCluster(df5):
-    import torch.optim as optim
-    import torch
     
     input_dim = df5.shape[1]
     data_tensor = torch.tensor(df5.values, dtype=torch.float32)
@@ -66,6 +85,8 @@ def DimentionalityReductionCluster(df5):
     # Scale Latent Features
     latent_features_scaled = StandardScaler().fit_transform(latent_features)
     num_clusters = 5
+    pca = PCA(n_components=2)
+    latent_2d = pca.fit_transform(latent_features_scaled)
     kmeans = KMeans(n_clusters=num_clusters, random_state=42)
     cluster_labels = kmeans.fit_predict(latent_features_scaled)
     
